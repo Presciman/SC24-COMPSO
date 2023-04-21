@@ -1,0 +1,33 @@
+#!/bin/bash
+#BSUB -nnodes 32
+#BSUB -W 01:30
+#BSUB -P csc337
+#BSUB -alloc_flags "smt4 nvme"
+#BSUB -J bert 
+#BSUB -o %J.output_grads_sum.txt
+#BSUB -e %J.err_grads_sum.txt
+#BSUB -q debug
+
+BERT_ROOT=/ccs/home/dtao/baixi/BERT-PyTorch
+# Load modules
+module load open-ce/1.5.2-py38-0
+module load gcc
+conda activate bert-pytorch
+# Determine number of nodes
+nprocspn=6
+nnodes=$(cat ${LSB_DJOB_HOSTFILE} | sort | uniq | grep -v login | grep -v batch | wc -l)
+nprocs=$(( ${nnodes} * ${nprocspn} ))
+
+echo Number of nodes ${nnodes}
+echo nprocspn ${nprocspn}
+#Baixi: important for enabling 6 gpus per compute node
+unset CUDA_VISIBLE_DEVICES
+#CONFIG=/home/sunbaixi/Second_Order/BERT-PyTorch/config/bert_pretraining_phase2_config.json
+#DATA=/gpfs/alpine/csc337/scratch/dtao/baixi/bert/bert_masked_wikicorpus_en/phase2/
+
+#INPUT_DATA=/gpfs/alpine/csc337/scratch/dtao/baixi/bert/bert_masked_wikicorpus_en/phase2/
+#jsrun -n ${nnodes} -a 1 -c 42 -r 1 cp -r ${INPUT_DATA} /mnt/bb/${USER}/
+#cd ${BERT_ROOT}
+jsrun --smpiargs="-disable_gpu_hooks" -n ${nnodes} -g 6 -c 42 -a ${nprocspn} -r 1 -E BERT_ROOT=$BERT_ROOT -E OMP_NUM_THREADS=8 --bind=proportional-packed:7 --launch_distribution=packed ./utils/launch.sh ./scripts/run_pretraining_summit_32node_phase2.sh
+
+
